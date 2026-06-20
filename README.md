@@ -14,6 +14,12 @@ Image có sẵn:
 
 ## Image Trên GHCR
 
+Image **public** — pull trực tiếp, không cần login. Hỗ trợ `linux/amd64` và `linux/arm64` (Apple Silicon không cần `platform: linux/amd64`):
+
+```sh
+docker pull ghcr.io/thang-dv/wp-docker:latest
+```
+
 Image mặc định:
 
 ```txt
@@ -29,12 +35,9 @@ ghcr.io/thang-dv/wp-docker:v1.0.0
 ghcr.io/thang-dv/wp-docker:sha-<commit>
 ```
 
-Nếu package GHCR đang private, login trước khi pull:
+Lần publish đầu tiên, org GHCR package mặc định **private**. Workflow sẽ tự set **public** sau khi push. Nếu API không đủ quyền, vào **Package settings → Change visibility → Public**:
 
-```sh
-echo "$GITHUB_TOKEN" | docker login ghcr.io -u <github-username> --password-stdin
-docker pull ghcr.io/thang-dv/wp-docker:latest
-```
+`https://github.com/orgs/thang-dv/packages/container/wp-docker/settings`
 
 ## Build Local Khi Cần
 

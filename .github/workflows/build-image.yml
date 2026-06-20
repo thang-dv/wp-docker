@@ -63,8 +63,27 @@ jobs:
           file: ./docker/Dockerfile
           build-args: |
             WORDPRESS_IMAGE=${{ env.WORDPRESS_IMAGE }}
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Set GHCR package visibility to public
+        if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PACKAGE="${GITHUB_REPOSITORY#*/}"
+          PACKAGE="${PACKAGE,,}"
+          STATUS=$(gh api "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/${PACKAGE}" --jq '.visibility' 2>/dev/null || echo "unknown")
+          echo "Current visibility for ${PACKAGE}: ${STATUS}"
+          if [ "$STATUS" = "public" ]; then
+            echo "Package is already public"
+            exit 0
+          fi
+          gh api --method PATCH "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/${PACKAGE}" \
+            -f visibility=public \
+            && echo "Package is now public" \
+            || echo "Could not set visibility automatically; set it manually in Package settings"
