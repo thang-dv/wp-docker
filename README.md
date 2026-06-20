@@ -14,7 +14,7 @@ Image có sẵn:
 
 ## Image Trên GHCR
 
-Image **public** — pull trực tiếp, không cần login:
+Image **public** — pull trực tiếp, không cần login. Hỗ trợ `linux/amd64` và `linux/arm64` (Apple Silicon không cần `platform: linux/amd64`):
 
 ```sh
 docker pull ghcr.io/thang-dv/wp-docker:latest

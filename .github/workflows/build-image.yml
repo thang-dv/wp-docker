@@ -63,6 +63,7 @@ jobs:
           file: ./docker/Dockerfile
           build-args: |
             WORDPRESS_IMAGE=${{ env.WORDPRESS_IMAGE }}
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
