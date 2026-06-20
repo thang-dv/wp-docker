@@ -1,0 +1,35 @@
+# Reference only: this file shows how a project can consume the reusable image.
+# Your real WordPress project should provide the database service or external DB.
+services:
+  wordpress:
+    image: ghcr.io/thang-dv/wp-docker:latest
+    container_name: wordpress
+    restart: unless-stopped
+    ports:
+      - "${WP_BIND_HOST:-127.0.0.1}:${WP_PORT:-8084}:80"
+    environment:
+      WORDPRESS_DB_HOST: "${DB_HOST}"
+      WORDPRESS_DB_NAME: "${DB_NAME}"
+      WORDPRESS_DB_USER: "${DB_USER}"
+      WORDPRESS_DB_PASSWORD: "${DB_PASSWORD}"
+      WP_SITEURL: "${WP_SITEURL}"
+      WP_HOME: "${WP_HOME}"
+      WP_DEBUG: ${WP_DEBUG:-false}
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_HOME', '${WP_HOME}');
+        define('WP_SITEURL', '${WP_SITEURL}');
+        define('WP_DEBUG', ${WP_DEBUG:-false});
+        define('WP_DEBUG_LOG', ${WORDPRESS_DEBUG_LOG:-false});
+        define('WP_DEBUG_DISPLAY', ${WORDPRESS_DEBUG_DISPLAY:-false});
+        define('WP_AUTO_UPDATE_CORE', ${WP_AUTO_UPDATE_CORE:-false});
+        define('AUTOMATIC_UPDATER_DISABLED', true);
+        define('DISABLE_WP_CRON', ${WORDPRESS_DISABLE_CRON:-false});
+    volumes:
+      - ${WP_CONTENT_PATH:-./wp-content}:/var/www/html/wp-content
+      - ${WP_CONFIG_PATH:-./docker-config}:/docker/config:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fs ${WP_HEALTHCHECK_URL:-http://localhost/wp-login.php} || exit 1" ]
+      interval: ${WP_HEALTHCHECK_INTERVAL:-15s}
+      timeout: ${WP_HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${WP_HEALTHCHECK_RETRIES:-5}
+      start_period: ${WP_HEALTHCHECK_START_PERIOD:-30s}
