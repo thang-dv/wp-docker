@@ -144,11 +144,9 @@ docker push your-registry/reusable-wordpress:php8.4-apache
 
 Workflow `.github/workflows/build-image.yml` sẽ build image từ `./docker`.
 
-- Pull request: chỉ build để kiểm tra.
-- Push lên `main` hoặc `master`: build và push image lên GHCR.
-- Tag dạng `v*.*.*`: build và push tag tương ứng lên GHCR.
+- Pull request merge vào `main`/`master`: build và push image lên GHCR.
 - Manual run: có thể đổi base image bằng input `wordpress_image`.
-- Runner: dùng GitHub Actions self-hosted runner có Docker và Buildx.
+- Runner: GitHub-hosted (`ubuntu-latest`), free vì repo public.
 
 Image mặc định trên GitHub Container Registry:
 
