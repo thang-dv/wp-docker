@@ -1,0 +1,17 @@
+#!/bin/sh
+
+set -e
+
+echo "Starting WordPress container..."
+
+if [ -f "${PHP_INI_FILE:-/docker/config/php.ini}" ]; then
+  cp "${PHP_INI_FILE:-/docker/config/php.ini}" /usr/local/etc/php/conf.d/custom.ini
+fi
+
+(
+  bash /usr/local/bin/install-plugins.sh
+  bash /usr/local/bin/migrate-url.sh
+  bash /usr/local/bin/cache-clear.sh
+) &
+
+exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
