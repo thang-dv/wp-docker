@@ -144,6 +144,93 @@ Accepted values: `1`, `true`, `yes`, `on`.
 
 All config files are optional. If `WP_CONFIG_PATH` has no `php.ini`, `plugins.txt`, or `local-plugins/`, the container skips that step and starts normally. Place these files in `./docker-config` in your project.
 
+## Container Commands
+
+Scripts and WP-CLI are available inside the running container. Replace `wordpress` with your `container_name` if different.
+
+### Shell access
+
+```sh
+docker compose exec wordpress sh
+# or
+docker exec -it wordpress sh
+```
+
+### Built-in scripts
+
+These run automatically on container start (in the background). You can also run them manually:
+
+| Script | Path | What it does |
+|--------|------|--------------|
+| Install plugins | `/usr/local/bin/install-plugins.sh` | Sync plugins from `plugins.txt`, install local `.zip` files, remove plugins not in the list |
+| Migrate URL | `/usr/local/bin/migrate-url.sh` | Update `siteurl`/`home` to `WP_SITEURL`, run `search-replace`, update Elementor URLs |
+| Clear cache | `/usr/local/bin/cache-clear.sh` | Flush object cache, Redis (if present), and transients |
+| WP cron loop | `/usr/local/bin/wp-cron.sh` | Run due cron events every 60s (managed by supervisor) |
+| Run cron once | `/usr/local/bin/cron.sh` | Run due cron events once |
+
+```sh
+# Re-sync plugins (after editing plugins.txt)
+docker compose exec -e WP_FORCE_INSTALL=1 wordpress sh /usr/local/bin/install-plugins.sh
+
+# Re-run URL migration (only runs once by default; clear flag first to force)
+docker compose exec wordpress sh -c 'wp option delete _env_url_migrated --path=/var/www/html --allow-root'
+docker compose exec wordpress sh /usr/local/bin/migrate-url.sh
+
+# Clear all caches
+docker compose exec wordpress sh /usr/local/bin/cache-clear.sh
+
+# Run WP cron manually
+docker compose exec wordpress sh /usr/local/bin/cron.sh
+```
+
+### WP-CLI
+
+WP-CLI is installed at `/usr/local/bin/wp`. Use `--path=/var/www/html --allow-root` for all commands:
+
+```sh
+# Core
+docker compose exec wordpress wp core is-installed --path=/var/www/html --allow-root
+docker compose exec wordpress wp core version --path=/var/www/html --allow-root
+
+# Plugins
+docker compose exec wordpress wp plugin list --path=/var/www/html --allow-root
+docker compose exec wordpress wp plugin install contact-form-7 --activate --path=/var/www/html --allow-root
+docker compose exec wordpress wp plugin update --all --path=/var/www/html --allow-root
+
+# Themes
+docker compose exec wordpress wp theme list --path=/var/www/html --allow-root
+docker compose exec wordpress wp theme activate twentytwentyfour --path=/var/www/html --allow-root
+
+# Database
+docker compose exec wordpress wp db check --path=/var/www/html --allow-root
+docker compose exec wordpress wp search-replace 'http://old.url' 'http://new.url' --all-tables --path=/var/www/html --allow-root
+
+# Cache & cron
+docker compose exec wordpress wp cache flush --path=/var/www/html --allow-root
+docker compose exec wordpress wp cron event list --path=/var/www/html --allow-root
+docker compose exec wordpress wp cron event run --due-now --path=/var/www/html --allow-root
+
+# Elementor (if installed)
+docker compose exec wordpress wp elementor flush-css --path=/var/www/html --allow-root
+docker compose exec wordpress wp elementor replace-urls 'http://old.url' 'http://new.url' --path=/var/www/html --allow-root
+
+# Users
+docker compose exec wordpress wp user list --path=/var/www/html --allow-root
+docker compose exec wordpress wp user create admin admin@example.com --role=administrator --user_pass=secret --path=/var/www/html --allow-root
+```
+
+For plugin/theme operations while plugins are broken, add `--skip-plugins --skip-themes` (used internally by `install-plugins.sh`).
+
+### Script environment variables
+
+| Variable | Default | Used by |
+|----------|---------|---------|
+| `WP_PLUGINS_FILE` | `/docker/config/plugins.txt` | `install-plugins.sh` |
+| `WP_LOCAL_PLUGINS_PATH` | `/docker/config/local-plugins` | `install-plugins.sh` |
+| `WP_FORCE_INSTALL` | _(empty)_ | `install-plugins.sh` — set to `1` to force reinstall |
+| `WP_SITEURL` | _(required for migration)_ | `migrate-url.sh` |
+| `PHP_INI_FILE` | `/docker/config/php.ini` | `start-container` |
+
 ## Publish Image
 
 To push to your own registry:
