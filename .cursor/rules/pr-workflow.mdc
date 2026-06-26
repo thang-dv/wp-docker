@@ -43,19 +43,32 @@ gh pr create --base main --head dev --title "release: promote dev to main"
 
 ## One PR per task — no fragmented PRs
 
-**Do not** open multiple small PRs for the same task or session. Consolidate instead.
+**Never** open multiple small PRs for the same task, session, or user request. **One branch → one PR → `dev`.**
 
 | Do | Don't |
 |----|-------|
-| One PR with all related changes for the task | Separate PRs for README, script, compose, docs |
-| Update the **existing open PR branch** with new commits | Open PR #12, #13, #14 for the same feature |
-| One consolidated PR that supersedes drafts | Leave overlapping open PRs and fix conflicts later |
+| One PR with **all** related changes | Separate PRs per file (README, script, compose, CI, rule) |
+| `gh pr list --base dev` first — push to **existing open PR branch** | Open PR #12, #13, #14, #17, #19 for one feature |
+| Close superseded PRs immediately | Leave overlapping PRs open → merge conflicts |
+| User says "pr to dev" → update open PR or create **one** PR with full diff | Create a new PR for every small fix |
 
-Before `gh pr create`:
+### Agent workflow (mandatory)
 
-1. Check open PRs: `gh pr list --base dev`
-2. If an open PR covers the same work → **push to that branch**, don't create a new PR
-3. If multiple changes belong together → **one branch, one PR**
-4. If a new PR replaces old ones → **close superseded PRs** with a comment
+Before **`gh pr create`**:
 
-When the user says "create PR", prefer **one PR to `dev`** with the full diff, not a PR per file or per commit.
+```sh
+gh pr list -R thang-dv/wp-docker --state open --base dev
+```
+
+- **Open PR exists for same work?** → `git push` to that branch. **Do not** run `gh pr create`.
+- **Multiple fixes in one conversation?** → one branch, squash into one PR.
+- **User asks "pr to dev"** → merge all pending local changes into a single PR.
+
+### Bad example (this repo)
+
+```
+#11 plugin sync  #12 sync script  #13 volumes  #14 consolidated  #17 CI  #19 zip fix
+→ Should have been ONE PR to dev.
+```
+
+When the user says **"pr"**, **"create pr"**, or **"pr to dev"**: deliver **at most one** open PR with the complete change set.
