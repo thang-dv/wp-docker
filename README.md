@@ -81,48 +81,59 @@ services:
         define('DISABLE_WP_CRON', ${WORDPRESS_DISABLE_CRON:-false});
     volumes:
       - ${WP_CONTENT_PATH:-./wp-content}/themes:/var/www/html/wp-content/themes
+      - ${WP_CONTENT_PATH:-./wp-content}/plugins:/var/www/html/wp-content/plugins
       - ${WP_CONTENT_PATH:-./wp-content}/uploads:/var/www/html/wp-content/uploads
       - ${WP_CONTENT_PATH:-./wp-content}/mu-plugins:/var/www/html/wp-content/mu-plugins
       - ${WP_BACKUP_PATH:-./backups}:/docker/backups
       - ${WP_CONFIG_PATH:-./docker-config}:/docker/config:ro
 ```
 
-Only persistent `wp-content` subdirectories are mounted:
+## Persistent volumes
 
-| Mount | Host path | Purpose |
-|-------|-----------|---------|
-| Themes | `./wp-content/themes` | Custom themes |
-| Uploads | `./wp-content/uploads` | Media library |
-| MU-plugins | `./wp-content/mu-plugins` | Must-use plugins (e.g. custom shortcodes) |
+Mount `wp-content` subdirectories on the host so data survives `docker compose down`, container recreate, and image updates.
 
-`wp-content/plugins` is **not** mounted. Plugins live in the container filesystem and are managed by `install-plugins.sh` from `plugins.txt`.
+| Mount | Host path | Survives | Purpose |
+|-------|-----------|----------|---------|
+| **Plugins** | `./wp-content/plugins` | ✅ | Installed plugins, settings files |
+| **Uploads** | `./wp-content/uploads` | ✅ | Media library (images, PDFs, …) |
+| Themes | `./wp-content/themes` | ✅ | Custom themes |
+| MU-plugins | `./wp-content/mu-plugins` | ✅ | Must-use plugins (e.g. custom shortcodes) |
 
-On container start the script will:
+Without a host mount, `plugins/` and `uploads/` live inside the container and are **lost** when the container is removed.
 
-- **First start** or `WP_FORCE_INSTALL=1`: full sync (force install + remove plugins not in list)
-- **Every other start** (including after a Docker image update): reinstall only **missing** plugins from `plugins.txt`
+### Setup (first time)
 
-Set `WP_FORCE_INSTALL=1` to force a full resync after changing `plugins.txt`.
+```sh
+mkdir -p wp-content/{themes,plugins,uploads,mu-plugins} backups
+```
 
-### Manual sync
+### docker-compose volumes
 
-Full resync from `plugins.txt` (force reinstall + remove plugins not in list):
+```yaml
+volumes:
+  - ${WP_CONTENT_PATH:-./wp-content}/plugins:/var/www/html/wp-content/plugins
+  - ${WP_CONTENT_PATH:-./wp-content}/uploads:/var/www/html/wp-content/uploads
+  - ${WP_CONTENT_PATH:-./wp-content}/themes:/var/www/html/wp-content/themes
+  - ${WP_CONTENT_PATH:-./wp-content}/mu-plugins:/var/www/html/wp-content/mu-plugins
+```
+
+### After `docker compose down` or image update
+
+```sh
+docker compose pull          # optional: new image
+docker compose up -d         # same host folders are reattached — plugins & uploads kept
+```
+
+Plugins from `plugins.txt` are still managed by `install-plugins.sh` on start (installs missing plugins). Use manual sync when you change `plugins.txt`:
 
 ```sh
 docker compose exec wordpress sh /usr/local/bin/sync-plugins.sh
 ```
 
-Equivalent:
+### What is not on the host
 
-```sh
-docker compose exec -e WP_FORCE_INSTALL=1 wordpress sh /usr/local/bin/install-plugins.sh
-```
-
-Create host directories before first run if needed:
-
-```sh
-mkdir -p wp-content/{themes,uploads,mu-plugins}
-```
+- WordPress core (`/var/www/html` except mounted subdirs) — comes from the image
+- Database — use your own MariaDB/MySQL volume or external DB
 
 Example `.env`:
 
@@ -177,13 +188,13 @@ plugin-slug:*
 
 Private or custom plugins go in `local-plugins/` as `.zip` files. The container installs them after WordPress is set up.
 
-On the **first** container start, all plugins from `plugins.txt` are force-installed and synced. After a **Docker image update** (new container), missing plugins are reinstalled automatically. Use `WP_FORCE_INSTALL=1` for a full resync (e.g. after editing `plugins.txt`):
+With `./wp-content/plugins` mounted (see [Persistent volumes](#persistent-volumes)), installed plugins survive container recreate. On start, `install-plugins.sh` only installs **missing** plugins. For a full resync after editing `plugins.txt`:
 
-```env
-WP_FORCE_INSTALL=1
+```sh
+docker compose exec wordpress sh /usr/local/bin/sync-plugins.sh
 ```
 
-Accepted values: `1`, `true`, `yes`, `on`.
+Or set `WP_FORCE_INSTALL=1` in `.env` and restart.
 
 All config files are optional. If `WP_CONFIG_PATH` has no `php.ini`, `plugins.txt`, or `local-plugins/`, the container skips that step and starts normally. Place these files in `./docker-config` in your project.
 
@@ -289,7 +300,7 @@ wp-content/plugins/
 manifest.txt
 ```
 
-`plugins` is included because the plugins directory is not mounted on the host.
+`plugins` is included in backups for a full site archive (even when mounted on the host).
 
 Restore example:
 
