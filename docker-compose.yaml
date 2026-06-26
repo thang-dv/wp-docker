@@ -29,6 +29,7 @@ services:
       - ${WP_CONTENT_PATH:-./wp-content}/themes:/var/www/html/wp-content/themes
       - ${WP_CONTENT_PATH:-./wp-content}/uploads:/var/www/html/wp-content/uploads
       - ${WP_CONTENT_PATH:-./wp-content}/mu-plugins:/var/www/html/wp-content/mu-plugins
+      - ${WP_BACKUP_PATH:-./backups}:/docker/backups
       - ${WP_CONFIG_PATH:-./docker-config}:/docker/config:ro
     healthcheck:
       test: [ "CMD-SHELL", "curl -fs ${WP_HEALTHCHECK_URL:-http://localhost/wp-login.php} || exit 1" ]
