@@ -27,6 +27,7 @@ services:
         define('DISABLE_WP_CRON', ${WORDPRESS_DISABLE_CRON:-false});
     volumes:
       - ${WP_CONTENT_PATH:-./wp-content}/themes:/var/www/html/wp-content/themes
+      - ${WP_CONTENT_PATH:-./wp-content}/plugins:/var/www/html/wp-content/plugins
       - ${WP_CONTENT_PATH:-./wp-content}/uploads:/var/www/html/wp-content/uploads
       - ${WP_CONTENT_PATH:-./wp-content}/mu-plugins:/var/www/html/wp-content/mu-plugins
       - ${WP_BACKUP_PATH:-./backups}:/docker/backups
