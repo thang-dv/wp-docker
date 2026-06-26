@@ -95,7 +95,28 @@ Only persistent `wp-content` subdirectories are mounted:
 | Uploads | `./wp-content/uploads` | Media library |
 | MU-plugins | `./wp-content/mu-plugins` | Must-use plugins (e.g. custom shortcodes) |
 
-`wp-content/plugins` is **not** mounted. Plugins live in the container and are managed by `install-plugins.sh` from `plugins.txt`. Rebuild or set `WP_FORCE_INSTALL=1` to resync.
+`wp-content/plugins` is **not** mounted. Plugins live in the container filesystem and are managed by `install-plugins.sh` from `plugins.txt`.
+
+On container start the script will:
+
+- **First start** or `WP_FORCE_INSTALL=1`: full sync (force install + remove plugins not in list)
+- **Every other start** (including after a Docker image update): reinstall only **missing** plugins from `plugins.txt`
+
+Set `WP_FORCE_INSTALL=1` to force a full resync after changing `plugins.txt`.
+
+### Manual sync
+
+Full resync from `plugins.txt` (force reinstall + remove plugins not in list):
+
+```sh
+docker compose exec wordpress sh /usr/local/bin/sync-plugins.sh
+```
+
+Equivalent:
+
+```sh
+docker compose exec -e WP_FORCE_INSTALL=1 wordpress sh /usr/local/bin/install-plugins.sh
+```
 
 Create host directories before first run if needed:
 
@@ -156,7 +177,7 @@ plugin-slug:*
 
 Private or custom plugins go in `local-plugins/` as `.zip` files. The container installs them after WordPress is set up.
 
-On the **first** container start, all plugins from `plugins.txt` are force-installed and synced. Later starts **skip** install unless you set `WP_FORCE_INSTALL` in `.env`:
+On the **first** container start, all plugins from `plugins.txt` are force-installed and synced. After a **Docker image update** (new container), missing plugins are reinstalled automatically. Use `WP_FORCE_INSTALL=1` for a full resync (e.g. after editing `plugins.txt`):
 
 ```env
 WP_FORCE_INSTALL=1
@@ -184,7 +205,8 @@ These run automatically on container start (in the background). You can also run
 
 | Script | Path | What it does |
 |--------|------|--------------|
-| Install plugins | `/usr/local/bin/install-plugins.sh` | Sync plugins from `plugins.txt`, install local `.zip` files, remove plugins not in the list |
+| Install plugins | `/usr/local/bin/install-plugins.sh` | Auto on start; installs missing plugins after image update |
+| Sync plugins (manual) | `/usr/local/bin/sync-plugins.sh` | Full resync from `plugins.txt` on demand |
 | Migrate URL | `/usr/local/bin/migrate-url.sh` | Update `siteurl`/`home` to `WP_SITEURL`, run `search-replace`, update Elementor URLs |
 | Clear cache | `/usr/local/bin/cache-clear.sh` | Flush object cache, Redis (if present), and transients |
 | WP cron loop | `/usr/local/bin/wp-cron.sh` | Run due cron events every 60s (managed by supervisor) |
@@ -197,7 +219,10 @@ docker compose exec wordpress sh /usr/local/bin/backup.sh
 
 # Keep only the 5 most recent backups
 docker compose exec -e WP_BACKUP_KEEP=5 wordpress sh /usr/local/bin/backup.sh
-# Re-sync plugins (after editing plugins.txt)
+# Full manual plugin sync
+docker compose exec wordpress sh /usr/local/bin/sync-plugins.sh
+
+# Re-sync plugins (alias)
 docker compose exec -e WP_FORCE_INSTALL=1 wordpress sh /usr/local/bin/install-plugins.sh
 
 # Re-run URL migration (only runs once by default; clear flag first to force)
