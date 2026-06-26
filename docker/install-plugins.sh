@@ -29,10 +29,20 @@ should_full_sync() {
   return 1
 }
 
+plugin_slug_from_zip() {
+  basename "$1" .zip
+}
+
+is_plugin_dir_valid() {
+  dir=$1
+  [ -d "$dir" ] || return 1
+  find "$dir" -maxdepth 2 -name '*.php' 2>/dev/null | head -1 | grep -q .
+}
+
 is_plugin_present() {
   plugin=$1
 
-  if [ -d "$WP_PATH/wp-content/plugins/$plugin" ]; then
+  if is_plugin_dir_valid "$WP_PATH/wp-content/plugins/$plugin"; then
     return 0
   fi
 
@@ -44,10 +54,41 @@ is_plugin_present() {
   return 1
 }
 
+is_local_zip_installed() {
+  zip=$1
+  slug=$(plugin_slug_from_zip "$zip")
+  is_plugin_dir_valid "$WP_PATH/wp-content/plugins/$slug"
+}
+
+expected_plugin_slugs() {
+  if [ -f "$PLUGIN_FILE" ]; then
+    grep -v '^#' "$PLUGIN_FILE" | grep -v '^$' | cut -d: -f1 | xargs
+  fi
+
+  for zip in "$LOCAL_PLUGINS_PATH"/*.zip
+  do
+    [ -f "$zip" ] || continue
+    plugin_slug_from_zip "$zip"
+  done
+}
+
 install_plugin_from_list() {
   plugin=$1
   version=$2
   install_flags=$3
+
+  if is_truthy "${WP_FORCE_INSTALL:-}"; then
+    :
+  elif is_plugin_present "$plugin"; then
+    echo "Plugin already installed: $plugin"
+    return 0
+  fi
+
+  target="$WP_PATH/wp-content/plugins/$plugin"
+  if [ -d "$target" ] && ! is_plugin_dir_valid "$target"; then
+    echo "Removing incomplete plugin folder: $plugin"
+    rm -rf "$target"
+  fi
 
   if [ -z "$version" ] || [ "$version" = "*" ]; then
     echo "Installing $plugin:latest"
@@ -56,6 +97,31 @@ install_plugin_from_list() {
     echo "Installing $plugin:$version"
     wp plugin install "$plugin" --version="$version" $install_flags || true
   fi
+}
+
+install_local_zip() {
+  zip=$1
+  install_flags=$2
+  slug=$(plugin_slug_from_zip "$zip")
+  target="$WP_PATH/wp-content/plugins/$slug"
+
+  if [ ! -f "$zip" ]; then
+    echo "Local plugin zip not found: $zip"
+    return 1
+  fi
+
+  if ! is_truthy "${WP_FORCE_INSTALL:-}" && is_local_zip_installed "$zip"; then
+    echo "Local plugin already installed: $slug"
+    return 0
+  fi
+
+  if [ -d "$target" ]; then
+    echo "Removing existing plugin folder before zip install: $slug"
+    rm -rf "$target"
+  fi
+
+  echo "Installing local plugin $zip"
+  wp plugin install "$zip" $install_flags --force || true
 }
 
 install_plugins_from_file() {
@@ -71,6 +137,12 @@ install_plugins_from_file() {
       \#*) continue ;;
     esac
 
+    # Skip wp.org install when a local zip provides the same slug (e.g. ACF Pro)
+    if [ -f "$LOCAL_PLUGINS_PATH/$plugin.zip" ]; then
+      echo "Skipping wp.org install for $plugin (local zip available)"
+      continue
+    fi
+
     install_plugin_from_list "$plugin" "$version" "$install_flags"
   done < "$PLUGIN_FILE"
 }
@@ -81,13 +153,12 @@ install_local_plugins() {
   for zip in "$LOCAL_PLUGINS_PATH"/*.zip
   do
     [ -f "$zip" ] || continue
-    echo "Installing local plugin $zip"
-    wp plugin install "$zip" $install_flags || true
+    install_local_zip "$zip" "$install_flags"
   done
 }
 
 remove_unexpected_plugins() {
-  EXPECTED=$(grep -v '^#' "$PLUGIN_FILE" | grep -v '^$' | cut -d: -f1 | xargs)
+  EXPECTED=$(expected_plugin_slugs)
   INSTALLED=$(wp plugin list --field=name $FLAGS)
 
   for plugin in $INSTALLED
@@ -112,6 +183,10 @@ ensure_expected_plugins() {
       \#*) continue ;;
     esac
 
+    if [ -f "$LOCAL_PLUGINS_PATH/$plugin.zip" ]; then
+      continue
+    fi
+
     if is_plugin_present "$plugin"; then
       continue
     fi
@@ -124,9 +199,13 @@ ensure_expected_plugins() {
   for zip in "$LOCAL_PLUGINS_PATH"/*.zip
   do
     [ -f "$zip" ] || continue
-    echo "Ensuring local plugin $zip"
-    wp plugin install "$zip" $FLAGS || true
+
+    if is_local_zip_installed "$zip"; then
+      continue
+    fi
+
     missing=1
+    install_local_zip "$zip" "$FLAGS"
   done
 
   if [ "$missing" -eq 0 ]; then
@@ -153,8 +232,12 @@ if should_full_sync; then
   remove_unexpected_plugins
   wp option update "$PLUGIN_SYNC_OPTION" 1 $FLAGS >/dev/null
   echo "Full plugin sync complete"
-else
+elif [ -z "$(ls -A "$WP_PATH/wp-content/plugins" 2>/dev/null)" ]; then
+  echo "Plugins directory empty, installing missing plugins"
   ensure_expected_plugins
+  wp option update "$PLUGIN_SYNC_OPTION" 1 $FLAGS >/dev/null
+else
+  echo "Plugin sync skipped (set WP_FORCE_INSTALL=1 or run sync-plugins.sh to resync)"
 fi
 
 echo "Plugin manager done"

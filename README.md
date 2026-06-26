@@ -124,7 +124,7 @@ docker compose pull          # optional: new image
 docker compose up -d         # same host folders are reattached — plugins & uploads kept
 ```
 
-Plugins from `plugins.txt` are still managed by `install-plugins.sh` on start (installs missing plugins). Use manual sync when you change `plugins.txt`:
+Plugins from `plugins.txt` are managed by `install-plugins.sh`. With `./wp-content/plugins` mounted, a normal restart **skips** install. Resync manually after editing `plugins.txt`:
 
 ```sh
 docker compose exec wordpress sh /usr/local/bin/sync-plugins.sh
@@ -188,7 +188,18 @@ plugin-slug:*
 
 Private or custom plugins go in `local-plugins/` as `.zip` files. The container installs them after WordPress is set up.
 
-With `./wp-content/plugins` mounted (see [Persistent volumes](#persistent-volumes)), installed plugins survive container recreate. On start, `install-plugins.sh` only installs **missing** plugins. For a full resync after editing `plugins.txt`:
+With `./wp-content/plugins` mounted (see [Persistent volumes](#persistent-volumes)), installed plugins survive container recreate.
+
+`install-plugins.sh` on container start:
+
+| Condition | Behavior |
+|-----------|----------|
+| First start (`wp_docker_plugins_synced` not set) | Full install from `plugins.txt` + local zips |
+| `plugins/` directory empty (e.g. no volume after image update) | Install missing plugins only |
+| Normal restart with plugins on disk | **Skipped** — log: `Plugin sync skipped` |
+| `WP_FORCE_INSTALL=1` or `sync-plugins.sh` | Full resync |
+
+For a full resync after editing `plugins.txt`:
 
 ```sh
 docker compose exec wordpress sh /usr/local/bin/sync-plugins.sh
@@ -216,7 +227,7 @@ These run automatically on container start (in the background). You can also run
 
 | Script | Path | What it does |
 |--------|------|--------------|
-| Install plugins | `/usr/local/bin/install-plugins.sh` | Auto on start; installs missing plugins after image update |
+| Install plugins | `/usr/local/bin/install-plugins.sh` | Auto on first start only; skipped when `plugins/` has data |
 | Sync plugins (manual) | `/usr/local/bin/sync-plugins.sh` | Full resync from `plugins.txt` on demand |
 | Migrate URL | `/usr/local/bin/migrate-url.sh` | Update `siteurl`/`home` to `WP_SITEURL`, run `search-replace`, update Elementor URLs |
 | Clear cache | `/usr/local/bin/cache-clear.sh` | Flush object cache, Redis (if present), and transients |
