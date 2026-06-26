@@ -318,10 +318,17 @@ feature/* ──PR──► dev ──PR──► main
 
 ### Workflow triggers
 
-- PR merged into `dev`, `main`, or `master`: build and push to GHCR
-- Manual run: change base image via `wordpress_image` input
+| Event | Job | Result |
+|-------|-----|--------|
+| PR opened/updated → `dev` | **Build test** | Validate scripts + `docker build` (no push) |
+| Push to `dev` | **Build test** | Same as above |
+| PR merged → `dev` | **Publish** | Push `ghcr.io/thang-dv/wp-docker:dev` |
+| PR merged → `main` | **Publish** | Push `ghcr.io/thang-dv/wp-docker:latest` |
+| Manual run | **Publish** | Optional test-only via `publish: false` |
+
 - Runner: GitHub-hosted (`ubuntu-latest`), free for public repos
-- Multi-arch: `linux/amd64`, `linux/arm64`
+- Multi-arch publish: `linux/amd64`, `linux/arm64`
+- Build test uses `linux/amd64` only for speed
 
 Default image on GitHub Container Registry:
 
