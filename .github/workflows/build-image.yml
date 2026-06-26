@@ -1,0 +1,89 @@
+name: Build WordPress Image
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      wordpress_image:
+        description: Base WordPress image
+        required: false
+        default: wordpress:php8.4-apache
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  WORDPRESS_IMAGE: ${{ github.event.inputs.wordpress_image || 'wordpress:php8.4-apache' }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build image
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.ref }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and publish image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./docker
+          file: ./docker/Dockerfile
+          build-args: |
+            WORDPRESS_IMAGE=${{ env.WORDPRESS_IMAGE }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Set GHCR package visibility to public
+        if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PACKAGE="${GITHUB_REPOSITORY#*/}"
+          PACKAGE="${PACKAGE,,}"
+          STATUS=$(gh api "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/${PACKAGE}" --jq '.visibility' 2>/dev/null || echo "unknown")
+          echo "Current visibility for ${PACKAGE}: ${STATUS}"
+          if [ "$STATUS" = "public" ]; then
+            echo "Package is already public"
+            exit 0
+          fi
+          gh api --method PATCH "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/${PACKAGE}" \
+            -f visibility=public \
+            && echo "Package is now public" \
+            || echo "Could not set visibility automatically; set it manually in Package settings"

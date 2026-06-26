@@ -1,0 +1,11 @@
+.git
+.github
+.idea
+.DS_Store
+.env
+.env.*
+README.md
+docker-compose*.yml
+docker-compose*.yaml
+wp-content
+local-plugins
