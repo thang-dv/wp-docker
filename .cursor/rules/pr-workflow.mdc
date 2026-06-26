@@ -40,3 +40,22 @@ gh pr create --base main --head dev --title "release: promote dev to main"
 
 - Do not commit unless the user asks.
 - Do not push to `main` directly.
+
+## One PR per task — no fragmented PRs
+
+**Do not** open multiple small PRs for the same task or session. Consolidate instead.
+
+| Do | Don't |
+|----|-------|
+| One PR with all related changes for the task | Separate PRs for README, script, compose, docs |
+| Update the **existing open PR branch** with new commits | Open PR #12, #13, #14 for the same feature |
+| One consolidated PR that supersedes drafts | Leave overlapping open PRs and fix conflicts later |
+
+Before `gh pr create`:
+
+1. Check open PRs: `gh pr list --base dev`
+2. If an open PR covers the same work → **push to that branch**, don't create a new PR
+3. If multiple changes belong together → **one branch, one PR**
+4. If a new PR replaces old ones → **close superseded PRs** with a comment
+
+When the user says "create PR", prefer **one PR to `dev`** with the full diff, not a PR per file or per commit.
