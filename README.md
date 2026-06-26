@@ -9,6 +9,7 @@ The image includes:
 - Supervisor for WP cron
 - URL migration script based on `WP_SITEURL`
 - Cache clearing script
+- Backup script for database and `wp-content` (themes, uploads, mu-plugins, plugins)
 - Plugin installer from `plugins.txt` and `.zip` files in `local-plugins/` (if present)
 - Custom `php.ini` when mounted via config
 
@@ -79,8 +80,27 @@ services:
         define('WP_DEBUG_DISPLAY', ${WORDPRESS_DEBUG_DISPLAY:-false});
         define('DISABLE_WP_CRON', ${WORDPRESS_DISABLE_CRON:-false});
     volumes:
-      - ${WP_CONTENT_PATH:-./wp-content}:/var/www/html/wp-content
+      - ${WP_CONTENT_PATH:-./wp-content}/themes:/var/www/html/wp-content/themes
+      - ${WP_CONTENT_PATH:-./wp-content}/uploads:/var/www/html/wp-content/uploads
+      - ${WP_CONTENT_PATH:-./wp-content}/mu-plugins:/var/www/html/wp-content/mu-plugins
+      - ${WP_BACKUP_PATH:-./backups}:/docker/backups
       - ${WP_CONFIG_PATH:-./docker-config}:/docker/config:ro
+```
+
+Only persistent `wp-content` subdirectories are mounted:
+
+| Mount | Host path | Purpose |
+|-------|-----------|---------|
+| Themes | `./wp-content/themes` | Custom themes |
+| Uploads | `./wp-content/uploads` | Media library |
+| MU-plugins | `./wp-content/mu-plugins` | Must-use plugins (e.g. custom shortcodes) |
+
+`wp-content/plugins` is **not** mounted. Plugins live in the container and are managed by `install-plugins.sh` from `plugins.txt`. Rebuild or set `WP_FORCE_INSTALL=1` to resync.
+
+Create host directories before first run if needed:
+
+```sh
+mkdir -p wp-content/{themes,uploads,mu-plugins}
 ```
 
 Example `.env`:
@@ -91,6 +111,8 @@ WP_PORT=8084
 WP_SITEURL=http://localhost:8084
 WP_HOME=http://localhost:8084
 WP_CONTENT_PATH=./wp-content
+WP_BACKUP_PATH=./backups
+WP_BACKUP_KEEP=5
 WP_CONFIG_PATH=./docker-config
 PHP_INI_FILE=/docker/config/php.ini
 WP_PLUGINS_FILE=/docker/config/plugins.txt
@@ -167,8 +189,14 @@ These run automatically on container start (in the background). You can also run
 | Clear cache | `/usr/local/bin/cache-clear.sh` | Flush object cache, Redis (if present), and transients |
 | WP cron loop | `/usr/local/bin/wp-cron.sh` | Run due cron events every 60s (managed by supervisor) |
 | Run cron once | `/usr/local/bin/cron.sh` | Run due cron events once |
+| Backup | `/usr/local/bin/backup.sh` | Export DB + `wp-content` (themes, uploads, mu-plugins, plugins) to `/docker/backups` |
 
 ```sh
+# Create a backup (saved to ./backups on host)
+docker compose exec wordpress sh /usr/local/bin/backup.sh
+
+# Keep only the 5 most recent backups
+docker compose exec -e WP_BACKUP_KEEP=5 wordpress sh /usr/local/bin/backup.sh
 # Re-sync plugins (after editing plugins.txt)
 docker compose exec -e WP_FORCE_INSTALL=1 wordpress sh /usr/local/bin/install-plugins.sh
 
@@ -221,6 +249,37 @@ docker compose exec wordpress wp user create admin admin@example.com --role=admi
 
 For plugin/theme operations while plugins are broken, add `--skip-plugins --skip-themes` (used internally by `install-plugins.sh`).
 
+### Backup
+
+Backups are written to `/docker/backups` inside the container (mount `./backups` via `WP_BACKUP_PATH`).
+
+Each run creates `wp-backup-YYYYMMDD-HHMMSS.tar.gz` containing:
+
+```txt
+database.sql
+wp-content/themes/
+wp-content/uploads/
+wp-content/mu-plugins/
+wp-content/plugins/
+manifest.txt
+```
+
+`plugins` is included because the plugins directory is not mounted on the host.
+
+Restore example:
+
+```sh
+# Extract on host
+tar -xzf backups/wp-backup-20260101-120000.tar.gz -C /tmp
+dir=/tmp/wp-backup-20260101-120000
+
+# Restore files
+cp -a "$dir/wp-content/"* ./wp-content/
+
+# Restore database
+docker compose exec -i wordpress wp db import - --path=/var/www/html --allow-root < "$dir/database.sql"
+```
+
 ### Script environment variables
 
 | Variable | Default | Used by |
@@ -229,6 +288,8 @@ For plugin/theme operations while plugins are broken, add `--skip-plugins --skip
 | `WP_LOCAL_PLUGINS_PATH` | `/docker/config/local-plugins` | `install-plugins.sh` |
 | `WP_FORCE_INSTALL` | _(empty)_ | `install-plugins.sh` — set to `1` to force reinstall |
 | `WP_SITEURL` | _(required for migration)_ | `migrate-url.sh` |
+| `WP_BACKUP_DIR` | `/docker/backups` | `backup.sh` |
+| `WP_BACKUP_KEEP` | _(empty)_ | `backup.sh` — max archives to keep |
 | `PHP_INI_FILE` | `/docker/config/php.ini` | `start-container` |
 
 ## Publish Image

@@ -22,6 +22,7 @@ COPY wp-cron.sh /usr/local/bin/wp-cron.sh
 COPY migrate-url.sh /usr/local/bin/migrate-url.sh
 COPY cache-clear.sh /usr/local/bin/cache-clear.sh
 COPY install-plugins.sh /usr/local/bin/install-plugins.sh
+COPY backup.sh /usr/local/bin/backup.sh
 
 RUN chmod +x /usr/local/bin/*.sh
 
