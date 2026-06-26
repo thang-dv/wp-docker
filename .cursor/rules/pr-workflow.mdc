@@ -1,0 +1,42 @@
+---
+description: Git branching and PR workflow — feature to dev, then dev to main
+alwaysApply: true
+---
+
+# PR Workflow
+
+## Branch flow
+
+```
+feature/* ──PR──► dev ──PR──► main
+```
+
+1. **Never open a feature PR directly to `main`** unless it is a hotfix explicitly requested.
+2. **Feature work** → branch from `dev`, open PR with **base: `dev`**.
+3. **Release to production** → open PR with **base: `main`**, **head: `dev`**, after `dev` is tested.
+
+## Creating PRs
+
+```sh
+git checkout dev && git pull origin dev
+git checkout -b feat/my-change
+# ... commits ...
+git push -u origin feat/my-change
+gh pr create --base dev --head feat/my-change
+```
+
+Promote `dev` to `main`:
+
+```sh
+gh pr create --base main --head dev --title "release: promote dev to main"
+```
+
+## CI / images
+
+- Merge to **`dev`** → GHCR tag `:dev`
+- Merge to **`main`** → GHCR tag `:latest`
+
+## Commits
+
+- Do not commit unless the user asks.
+- Do not push to `main` directly.

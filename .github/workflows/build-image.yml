@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - master
+      - dev
   workflow_dispatch:
     inputs:
       wordpress_image:
@@ -54,7 +55,8 @@ jobs:
             type=ref,event=branch
             type=ref,event=tag
             type=sha,prefix=sha-
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.base_ref == 'main' || github.base_ref == 'master' || github.ref == 'refs/heads/main' }}
+            type=raw,value=dev,enable=${{ github.base_ref == 'dev' || github.ref == 'refs/heads/dev' }}
 
       - name: Build and publish image
         uses: docker/build-push-action@v6

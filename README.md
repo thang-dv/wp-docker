@@ -305,7 +305,20 @@ docker push your-registry/reusable-wordpress:php8.4-apache
 
 Workflow `.github/workflows/build-image.yml` builds the image from `./docker`.
 
-- PR merged into `main`/`master`: build and push to GHCR
+### Branching & PRs
+
+```
+feature/* ──PR──► dev ──PR──► main
+```
+
+- Open feature PRs against **`dev`**, not `main`
+- Promote tested changes: open PR **`dev` → `main`**
+- Merge to **`dev`** → publishes `ghcr.io/thang-dv/wp-docker:dev`
+- Merge to **`main`** → publishes `ghcr.io/thang-dv/wp-docker:latest`
+
+### Workflow triggers
+
+- PR merged into `dev`, `main`, or `master`: build and push to GHCR
 - Manual run: change base image via `wordpress_image` input
 - Runner: GitHub-hosted (`ubuntu-latest`), free for public repos
 - Multi-arch: `linux/amd64`, `linux/arm64`
