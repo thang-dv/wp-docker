@@ -232,8 +232,12 @@ if should_full_sync; then
   remove_unexpected_plugins
   wp option update "$PLUGIN_SYNC_OPTION" 1 $FLAGS >/dev/null
   echo "Full plugin sync complete"
-else
+elif [ -z "$(ls -A "$WP_PATH/wp-content/plugins" 2>/dev/null)" ]; then
+  echo "Plugins directory empty, installing missing plugins"
   ensure_expected_plugins
+  wp option update "$PLUGIN_SYNC_OPTION" 1 $FLAGS >/dev/null
+else
+  echo "Plugin sync skipped (set WP_FORCE_INSTALL=1 or run sync-plugins.sh to resync)"
 fi
 
 echo "Plugin manager done"
