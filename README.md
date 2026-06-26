@@ -94,6 +94,7 @@ WP_CONFIG_PATH=./docker-config
 PHP_INI_FILE=/docker/config/php.ini
 WP_PLUGINS_FILE=/docker/config/plugins.txt
 WP_LOCAL_PLUGINS_PATH=/docker/config/local-plugins
+WP_FORCE_INSTALL=
 WP_HEALTHCHECK_URL=http://localhost/wp-login.php
 WP_HEALTHCHECK_INTERVAL=15s
 WP_HEALTHCHECK_TIMEOUT=5s
@@ -131,6 +132,12 @@ plugin-slug:*
 Trong đó `plugin-slug:*` sẽ cài bản mới nhất từ wordpress.org.
 
 Plugin private hoặc plugin tự viết đặt file `.zip` vào `local-plugins/`. Container sẽ tự cài sau khi WordPress đã install xong.
+
+Lần **đầu** container start sẽ force cài/sync toàn bộ plugin theo `plugins.txt`. Các lần start sau **bỏ qua** trừ khi set `WP_FORCE_INSTALL=1` trong `.env`:
+
+```env
+WP_FORCE_INSTALL=1
+```
 
 Các file config đều optional. Nếu `WP_CONFIG_PATH` không có `php.ini`, `plugins.txt`, hoặc `local-plugins/`, container sẽ bỏ qua phần tương ứng và vẫn start bình thường. Nên đặt các file này trong `./docker-config` của project thật.
 
