@@ -16,7 +16,7 @@ on:
       wordpress_image:
         description: Base WordPress image
         required: false
-        default: wordpress:php8.4-apache
+        default: wordpress:7.0.4-php8.4-apache
       publish:
         description: Push image to GHCR
         type: boolean
@@ -26,7 +26,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  WORDPRESS_IMAGE: ${{ github.event.inputs.wordpress_image || 'wordpress:php8.4-apache' }}
+  WORDPRESS_IMAGE: ${{ github.event.inputs.wordpress_image || 'wordpress:7.0.4-php8.4-apache' }}
 
 permissions:
   contents: read

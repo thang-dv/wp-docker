@@ -1,4 +1,6 @@
-ARG WORDPRESS_IMAGE=wordpress:php8.4-apache
+# Pin 7.0.4: wp2shell RCE (CVE-2026-63030 / CVE-2026-60137) is fixed;
+# floating wordpress:php8.4-apache tracks 7.1.
+ARG WORDPRESS_IMAGE=wordpress:7.0.4-php8.4-apache
 FROM ${WORDPRESS_IMAGE}
 
 WORKDIR /var/www/html
