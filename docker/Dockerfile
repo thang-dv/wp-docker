@@ -1,4 +1,6 @@
-ARG WORDPRESS_IMAGE=wordpress:php8.4-apache
+# Pin 7.1.3-php8.4-apache for PHP 8.4.27+ (CVE-2026-109618 / CVE-2026-109619, CVSS 9.2).
+# Rebuilt 2026-10-22 after PHP critical security release (mod_php RCE).
+ARG WORDPRESS_IMAGE=wordpress:7.1.3-php8.4-apache
 FROM ${WORDPRESS_IMAGE}
 
 WORKDIR /var/www/html
