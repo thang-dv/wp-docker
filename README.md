@@ -44,8 +44,8 @@ On first publish, org GHCR packages default to **private**. The workflow sets vi
 
 ```sh
 docker build \
-  --build-arg WORDPRESS_IMAGE=wordpress:php8.4-apache \
-  -t reusable-wordpress:php8.4-apache \
+  --build-arg WORDPRESS_IMAGE=wordpress:7.1.3-php8.4-apache \
+  -t reusable-wordpress:7.1.3-php8.4-apache \
   ./docker
 ```
 
